@@ -49,4 +49,22 @@ fi
 "$PROGRAM" -h -l "$TEST_DIR" >/dev/null
 "$PROGRAM" -k -s "$TEST_DIR" >/dev/null
 
+# -s must not print a total when stdout is redirected.
+REDIRECTED_OUTPUT="$TEST_DIR/subdir/redirected-output.txt"
+"$PROGRAM" -s "$TEST_DIR" > "$REDIRECTED_OUTPUT"
+
+if grep -q '^total ' "$REDIRECTED_OUTPUT"; then
+    echo "-s printed total when stdout was redirected" >&2
+    exit 1
+fi
+
+# -l must still print a total when stdout is redirected.
+LONG_OUTPUT="$TEST_DIR/subdir/long-output.txt"
+"$PROGRAM" -l "$TEST_DIR" > "$LONG_OUTPUT"
+
+if ! grep -q '^total ' "$LONG_OUTPUT"; then
+    echo "-l did not print the directory total" >&2
+    exit 1
+fi
+
 echo "smoke tests passed"
