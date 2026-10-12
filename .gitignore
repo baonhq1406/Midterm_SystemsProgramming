@@ -1,0 +1,9 @@
+# Compiled program and object files
+myls
+*.o
+
+# Editor / operating-system files
+*~
+.DS_Store
+.vscode/
+.idea/
