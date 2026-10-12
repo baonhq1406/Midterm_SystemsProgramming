@@ -5,7 +5,7 @@
 **Course project:** Midterm Project - Implement `ls(1)`  
 **Language:** C (POSIX/Linux)  
 **Reference manual:** the supplied NetBSD `ls(1)` manual (`ls.pdf`)  
-**GitHub repository:** `https://github.com/YOUR_USERNAME/Name_studentID_midterm` *(replace `YOUR_USERNAME` and `Name_studentID_midterm` with your actual GitHub username and required repository name before submission)*
+**GitHub repository:** `https://github.com/baonhq1406/Midterm_SystemsProgramming` *(replace `YOUR_USERNAME` and `Name_studentID_midterm` with your actual GitHub username and required repository name before submission)*
 
 ## 1. Overview
 
