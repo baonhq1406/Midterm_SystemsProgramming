@@ -1,5 +1,4 @@
 #include "ls.h"
-
 #include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -53,12 +52,16 @@ static int append_entry(EntryVector *entries, const char *name, const char *path
 
     if (entries->count == entries->capacity) {
         size_t new_capacity = entries->capacity == 0 ? 16 : entries->capacity * 2;
-        if (new_capacity < entries->capacity || new_capacity > SIZE_MAX / sizeof(*larger)) {
+
+        if (new_capacity < entries->capacity ||
+            new_capacity > SIZE_MAX / sizeof(*larger)) {
             errno = ENOMEM;
             return -1;
         }
+
         larger = realloc(entries->items, new_capacity * sizeof(*larger));
         if (larger == NULL) return -1;
+
         entries->items = larger;
         entries->capacity = new_capacity;
     }
@@ -66,12 +69,15 @@ static int append_entry(EntryVector *entries, const char *name, const char *path
     memset(&new_entry, 0, sizeof(new_entry));
     new_entry.name = strdup(name);
     new_entry.path = strdup(path);
+
     if (new_entry.name == NULL || new_entry.path == NULL) {
         free_entry(&new_entry);
         return -1;
     }
+
     new_entry.st = *metadata;
     entries->items[entries->count++] = new_entry;
+
     return 0;
 }
 
@@ -92,17 +98,22 @@ static int compare_entries(const void *left_pointer, const void *right_pointer)
 
     switch (sort_options->sort_mode) {
     case SORT_TIME:
-        result = compare_timespec(entry_time(&right->st, sort_options->time_mode),
-                                  entry_time(&left->st, sort_options->time_mode));
+        result = compare_timespec(
+            entry_time(&right->st, sort_options->time_mode),
+            entry_time(&left->st, sort_options->time_mode));
+
         if (result == 0) result = strcmp(left->name, right->name);
         break;
+
     case SORT_SIZE:
         if (left->st.st_size < right->st.st_size) result = 1;
         else if (left->st.st_size > right->st.st_size) result = -1;
         else result = strcmp(left->name, right->name);
         break;
+
     case SORT_NONE:
         return 0;
+
     case SORT_NAME:
     default:
         result = strcmp(left->name, right->name);
@@ -117,25 +128,30 @@ static int compare_operands(const void *left_pointer, const void *right_pointer)
     const Operand *left = left_pointer;
     const Operand *right = right_pointer;
     int result = strcmp(left->path, right->path);
+
     return sort_options != NULL && sort_options->reverse ? -result : result;
 }
 
 static bool include_name(const char *name, const Options *options)
 {
     if (options->hidden_mode == HIDDEN_ALL) return true;
+
     if (options->hidden_mode == HIDDEN_ALMOST_ALL) {
         return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
     }
+
     return name[0] != '.';
 }
 
-static int read_directory(const char *path, const Options *options, EntryVector *entries)
+static int read_directory(const char *path, const Options *options,
+                          EntryVector *entries)
 {
     DIR *directory;
     struct dirent *item;
     int read_error = 0;
 
     directory = opendir(path);
+
     if (directory == NULL) {
         fprintf(stderr, "ls: %s: ", path);
         perror(NULL);
@@ -148,6 +164,7 @@ static int read_directory(const char *path, const Options *options, EntryVector 
 
         errno = 0;
         item = readdir(directory);
+
         if (item == NULL) {
             if (errno != 0) {
                 fprintf(stderr, "ls: error reading directory %s: ", path);
@@ -160,8 +177,10 @@ static int read_directory(const char *path, const Options *options, EntryVector 
         if (!include_name(item->d_name, options)) continue;
 
         child_path = join_path(path, item->d_name);
+
         if (child_path == NULL) {
-            fprintf(stderr, "ls: unable to allocate path for %s\n", item->d_name);
+            fprintf(stderr, "ls: unable to allocate path for %s\n",
+                    item->d_name);
             read_error = 1;
             continue;
         }
@@ -180,6 +199,7 @@ static int read_directory(const char *path, const Options *options, EntryVector 
             free(child_path);
             break;
         }
+
         free(child_path);
     }
 
@@ -198,15 +218,31 @@ static void print_total(const EntryVector *entries, const Options *options)
     uintmax_t blocks = 0;
     size_t i;
 
-    if (!options->long_format && !options->show_blocks) return;
+    /*
+     * Long format always prints the directory total.
+     * With only -s, print the total only when stdout is a terminal,
+     * as specified by the supplied ls(1) manual.
+     */
+    if (!options->long_format &&
+        (!options->show_blocks || !isatty(STDOUT_FILENO))) {
+        return;
+    }
 
     for (i = 0; i < entries->count; ++i) {
         uintmax_t allocated = allocated_bytes(&entries->items[i].st);
         uintmax_t current_blocks = block_count(&entries->items[i].st, options);
-        if (UINTMAX_MAX - bytes < allocated) bytes = UINTMAX_MAX;
-        else bytes += allocated;
-        if (UINTMAX_MAX - blocks < current_blocks) blocks = UINTMAX_MAX;
-        else blocks += current_blocks;
+
+        if (UINTMAX_MAX - bytes < allocated) {
+            bytes = UINTMAX_MAX;
+        } else {
+            bytes += allocated;
+        }
+
+        if (UINTMAX_MAX - blocks < current_blocks) {
+            blocks = UINTMAX_MAX;
+        } else {
+            blocks += current_blocks;
+        }
     }
 
     if (options->size_mode == SIZE_MODE_HUMAN) {
@@ -232,14 +268,18 @@ static int list_directory(const char *path, const char *label, bool show_header,
         output->wrote_output = true;
     }
 
-    if (read_directory(path, options, &entries) != 0) result = 1;
+    if (read_directory(path, options, &entries) != 0) {
+        result = 1;
+    }
 
     if (!options->no_sort && entries.count > 1) {
         sort_options = options;
-        qsort(entries.items, entries.count, sizeof(*entries.items), compare_entries);
+        qsort(entries.items, entries.count, sizeof(*entries.items),
+              compare_entries);
     }
 
     print_total(&entries, options);
+
     for (i = 0; i < entries.count; ++i) {
         print_entry(&entries.items[i], options);
         output->wrote_output = true;
@@ -249,10 +289,16 @@ static int list_directory(const char *path, const char *label, bool show_header,
         for (i = 0; i < entries.count; ++i) {
             Entry *entry = &entries.items[i];
 
-            /* Do not follow symlinks during recursive descent. */
+            /* Do not follow symbolic links during recursive descent. */
             if (!S_ISDIR(entry->st.st_mode)) continue;
-            if (strcmp(entry->name, ".") == 0 || strcmp(entry->name, "..") == 0) continue;
-            if (list_directory(entry->path, entry->path, true, options, output) != 0) {
+
+            if (strcmp(entry->name, ".") == 0 ||
+                strcmp(entry->name, "..") == 0) {
+                continue;
+            }
+
+            if (list_directory(entry->path, entry->path, true,
+                               options, output) != 0) {
                 result = 1;
             }
         }
@@ -268,28 +314,40 @@ static int append_operand(OperandVector *operands, const char *path)
     char *copy;
 
     if (operands->count == operands->capacity) {
-        size_t new_capacity = operands->capacity == 0 ? 8 : operands->capacity * 2;
-        if (new_capacity < operands->capacity || new_capacity > SIZE_MAX / sizeof(*larger)) {
+        size_t new_capacity = operands->capacity == 0
+                                  ? 8
+                                  : operands->capacity * 2;
+
+        if (new_capacity < operands->capacity ||
+            new_capacity > SIZE_MAX / sizeof(*larger)) {
             errno = ENOMEM;
             return -1;
         }
+
         larger = realloc(operands->items, new_capacity * sizeof(*larger));
         if (larger == NULL) return -1;
+
         operands->items = larger;
         operands->capacity = new_capacity;
     }
 
     copy = strdup(path);
     if (copy == NULL) return -1;
+
     operands->items[operands->count].path = copy;
     ++operands->count;
+
     return 0;
 }
 
 static void free_operands(OperandVector *operands)
 {
     size_t i;
-    for (i = 0; i < operands->count; ++i) free(operands->items[i].path);
+
+    for (i = 0; i < operands->count; ++i) {
+        free(operands->items[i].path);
+    }
+
     free(operands->items);
     operands->items = NULL;
     operands->count = operands->capacity = 0;
@@ -309,11 +367,13 @@ static int process_file_operand(const char *path, const Options *options)
     entry.name = (char *)path;
     entry.path = (char *)path;
     entry.st = metadata;
+
     print_entry(&entry, options);
     return 0;
 }
 
-int run_listing(int argc, char **argv, int first_operand, const Options *options)
+int run_listing(int argc, char **argv, int first_operand,
+                const Options *options)
 {
     OperandVector files = {0};
     OperandVector directories = {0};
@@ -326,8 +386,12 @@ int run_listing(int argc, char **argv, int first_operand, const Options *options
 
     if (operand_count == 0) {
         struct stat metadata;
-        bool is_directory = stat(".", &metadata) == 0 && S_ISDIR(metadata.st_mode) &&
-                            !options->directory_as_file;
+
+        bool is_directory =
+            stat(".", &metadata) == 0 &&
+            S_ISDIR(metadata.st_mode) &&
+            !options->directory_as_file;
+
         if (append_operand(is_directory ? &directories : &files, ".") != 0) {
             fprintf(stderr, "ls: memory allocation failed\n");
             return 1;
@@ -337,12 +401,14 @@ int run_listing(int argc, char **argv, int first_operand, const Options *options
             struct stat metadata;
             bool is_directory = false;
 
-            if (!options->directory_as_file && stat(argv[i], &metadata) == 0 &&
+            if (!options->directory_as_file &&
+                stat(argv[i], &metadata) == 0 &&
                 S_ISDIR(metadata.st_mode)) {
                 is_directory = true;
             }
 
-            if (append_operand(is_directory ? &directories : &files, argv[i]) != 0) {
+            if (append_operand(is_directory ? &directories : &files,
+                              argv[i]) != 0) {
                 fprintf(stderr, "ls: memory allocation failed\n");
                 free_operands(&files);
                 free_operands(&directories);
@@ -352,19 +418,30 @@ int run_listing(int argc, char **argv, int first_operand, const Options *options
     }
 
     if (!options->no_sort) {
-        if (files.count > 1) qsort(files.items, files.count, sizeof(*files.items), compare_operands);
-        if (directories.count > 1) qsort(directories.items, directories.count,
-                                         sizeof(*directories.items), compare_operands);
+        if (files.count > 1) {
+            qsort(files.items, files.count, sizeof(*files.items),
+                  compare_operands);
+        }
+
+        if (directories.count > 1) {
+            qsort(directories.items, directories.count,
+                  sizeof(*directories.items), compare_operands);
+        }
     }
 
     for (i = 0; i < (int)files.count; ++i) {
-        if (process_file_operand(files.items[i].path, options) != 0) result = 1;
+        if (process_file_operand(files.items[i].path, options) != 0) {
+            result = 1;
+        }
+
         output.wrote_output = true;
     }
 
     for (i = 0; i < (int)directories.count; ++i) {
         bool show_header = options->recursive || operand_count > 1;
-        if (list_directory(directories.items[i].path, directories.items[i].path,
+
+        if (list_directory(directories.items[i].path,
+                           directories.items[i].path,
                            show_header, options, &output) != 0) {
             result = 1;
         }
@@ -372,5 +449,6 @@ int run_listing(int argc, char **argv, int first_operand, const Options *options
 
     free_operands(&files);
     free_operands(&directories);
+
     return result;
 }
