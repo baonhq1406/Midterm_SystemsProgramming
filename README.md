@@ -1,55 +1,60 @@
-# Midterm Project: Simplified `ls(1)`
+# Midterm Project: Implementing a Simplified `ls(1)`
 
-## Project report
+## Project Information
 
-**Course project:** Midterm Project - Implement `ls(1)`  
-**Language:** C (POSIX/Linux)  
-**Reference manual:** the supplied NetBSD `ls(1)` manual (`ls.pdf`)  
-**GitHub repository:** `https://github.com/baonhq1406/NguyenHuuQuocBao_24IT019_midterm` *(replace `YOUR_USERNAME` and `Name_studentID_midterm` with your actual GitHub username and required repository name before submission)*
+- **Course:** Systems Programming
+- **Project:** Midterm Project — Implement `ls(1)`
+- **Student:** Nguyen Huu Quoc Bao
+- **Student ID:** 24IT019
+- **Programming language:** C
+- **Target environment:** Linux / POSIX-compatible systems
+- **Reference manual:** The NetBSD `ls(1)` manual provided for this assignment (`ls.pdf`)
+- **GitHub repository:** https://github.com/baonhq1406/NguyenHuuQuocBao_24IT019_midterm
 
-## 1. Overview
+## 1. Project Overview
 
-This project implements a modular, simplified version of the UNIX `ls` command. It uses directory and metadata system calls such as `opendir()`, `readdir()`, `lstat()`, `stat()`, `readlink()`, and `closedir()` to list filesystem entries.
+This project implements a simplified version of the UNIX `ls` command in C. The program lists files and directories and supports the subset of command-line options specified in the supplied `ls(1)` manual.
 
-The implementation follows the option subset listed in the supplied manual. It is written for a POSIX/Linux environment and does not call the system `ls` command to generate its output.
+The executable is named `myls` so that it does not conflict with the system-provided `ls` command. The implementation obtains file and directory information through filesystem interfaces such as `opendir()`, `readdir()`, `lstat()`, `stat()`, `readlink()`, and `closedir()`. It does not invoke the system `ls` command to produce its output.
 
-## 2. Implemented options
+The project is divided into multiple source files and a shared header file. A `Makefile` is provided to compile the program, and a shell-based smoke test checks common features.
 
-| Option | Behavior |
-|---|---|
-| `-A` | Include dot-prefixed entries but omit `.` and `..`; enabled by default when run as superuser unless overridden by another hidden-file option. |
-| `-a` | Include all entries, including `.` and `..`. |
-| `-c` | Use status-change time for `-t` sorting and long-format timestamps; the last of `-c` and `-u` determines the selected time. |
-| `-d` | List directory operands as entries instead of listing their contents; disables recursion until a later `-R`. |
-| `-F` | Append `/`, `*`, `@`, `=`, or `|` for directories, executable regular files, symbolic links, sockets, and FIFOs. Linux has no standard whiteout file type, so `%` is not generated. |
-| `-f` | Disable sorting. |
-| `-h` | Show sizes in human-readable units for `-s` and `-l`; the last of `-h` and `-k` determines the size mode. A later `-k` returns long-format sizes to bytes and makes `-s` use kilobytes. |
-| `-i` | Print inode numbers. |
-| `-k` | Report `-s` block counts in 1024-byte units. |
-| `-l` | Use long format with owner and group names when available. |
-| `-n` | Use long format with numeric owner and group IDs. |
-| `-q` | Replace non-printable filename characters with `?`. |
-| `-R` | Recursively list subdirectories; a later `-d` disables recursion. Symbolic links are not followed during recursive descent. |
-| `-r` | Reverse the selected sort order. |
-| `-S` | Sort by file size, largest first. |
-| `-s` | Print allocated filesystem space in blocks. The default block unit is 512 bytes, subject to `BLOCKSIZE`. |
-| `-t` | Sort by the selected file timestamp, newest first. |
-| `-u` | Use last-access time for `-t` sorting and long-format timestamps; the last of `-c` and `-u` determines the selected time. |
-| `-w` | Print filename characters without replacing non-printable characters. Overrides a prior `-q`. |
+## 2. Implemented Options
 
-When more than one operand is supplied, non-directory operands are listed before directory operands, with each group sorted lexicographically (reversed by `-r`) unless `-f` is specified. The default output is one entry per line. Long format includes file mode, link count, owner, group, size, timestamp, and pathname. Symbolic-link targets are shown after ` -> ` in long format.
-
-### Platform notes and boundaries
-
-- This project targets Linux/POSIX and uses Linux's `st_blocks` allocation counts (in 512-byte units) as the basis for `-s` and directory totals.
-- Filesystem-specific NetBSD whiteouts and archive-state file types are not available through normal Linux `stat` metadata, so those NetBSD-only type markers cannot be emitted.
-- The supplied manual describes timezone selection through `TZ`; this program relies on the standard C library's local-time conversion and honors the process environment.
-- The human-readable output uses binary size units (`K`, `M`, `G`, etc.).
-
-## 3. Project structure
+The supported command-line syntax is:
 
 ```text
-Name_studentID_midterm/
+myls [-AacdFfhiklnqRrSstuw] [file ...]
+```
+
+| Option | Description |
+|---|---|
+| `-A` | Include entries whose names begin with a dot, excluding `.` and `..`. This is the default hidden-file mode when the program is run by the superuser, unless another hidden-file option is specified. |
+| `-a` | Include all entries, including `.` and `..`. |
+| `-c` | Use the file status-change time instead of modification time for `-t` sorting and long-format timestamps. The last of `-c` and `-u` determines the selected time. |
+| `-d` | List directory operands as entries instead of listing their contents. The most recently specified option between `-d` and `-R` determines whether recursive directory listing is enabled. |
+| `-F` | Append `/` to directories, `*` to executable regular files, `@` to symbolic links, `=` to sockets, and `\|` to FIFOs. Linux does not provide the NetBSD whiteout file type through normal file metadata, so the `%` marker is not generated. |
+| `-f` | Disable sorting. |
+| `-h` | Display sizes in a human-readable format for `-s` and `-l`. The last of `-h` and `-k` determines the size mode. |
+| `-i` | Display the inode number for each entry. |
+| `-k` | Display `-s` block counts in 1024-byte units. The last of `-h` and `-k` determines the size mode. |
+| `-l` | Use long format, including file type and permissions, link count, owner, group, size, timestamp, and pathname. |
+| `-n` | Use long format and display numeric user and group IDs instead of resolving names. The last of `-l` and `-n` determines whether IDs are numeric. |
+| `-q` | Replace non-printable filename characters with `?`. |
+| `-R` | Recursively list subdirectories. Symbolic links are not followed during recursive descent. The most recently specified option between `-R` and `-d` determines whether recursion is enabled. |
+| `-r` | Reverse the selected sort order. |
+| `-S` | Sort entries by size, largest first. |
+| `-s` | Display allocated filesystem space in blocks. The default block unit is 512 bytes; `BLOCKSIZE` may change the unit unless overridden by `-h` or `-k`. |
+| `-t` | Sort by the selected file timestamp, newest first. The default timestamp is modification time. |
+| `-u` | Use the last-access time for `-t` sorting and long-format timestamps. The last of `-c` and `-u` determines the selected time. |
+| `-w` | Print non-printable filename characters without replacing them. The last of `-q` and `-w` determines the output mode. |
+
+When no operand is given, the program lists the current directory. For multiple operands, non-directory operands are processed before directory operands; each group is sorted separately unless sorting is disabled with `-f`. By default, entries are printed one per line.
+
+## 3. Project Structure
+
+```text
+NguyenHuuQuocBao_24IT019_midterm/
 ├── Makefile
 ├── README.md
 ├── .gitignore
@@ -65,76 +70,137 @@ Name_studentID_midterm/
     └── smoke_test.sh
 ```
 
-- `main.c`: initializes the locale and starts option parsing.
-- `options.c`: initializes options and parses the supported command-line flags.
-- `listing.c`: reads directories, classifies operands, sorts entries, and handles recursion.
-- `format.c`: prints the default and long formats, permissions, IDs, timestamps, and symbolic-link targets.
-- `util.c`: provides path joining, character-safe printing, size conversion, timestamp access, file-type classification, and symlink reading.
-- `include/ls.h`: shared structs, enums, and function declarations.
+### Source file responsibilities
 
-## 4. Requirements
+- **`src/main.c`** — Initializes locale settings, parses command-line options, and starts the listing operation.
+- **`src/options.c`** — Initializes option defaults and parses the supported flags.
+- **`src/listing.c`** — Processes operands, reads directory entries, sorts entries, handles recursive traversal, and reports filesystem errors.
+- **`src/format.c`** — Formats normal and long listings, including permissions, ownership, sizes, timestamps, suffixes, and symbolic-link targets.
+- **`src/util.c`** — Provides utility functions for path construction, safe filename printing, human-readable sizes, block counts, timestamp selection, file-type classification, and symbolic-link reading.
+- **`include/ls.h`** — Defines shared data structures, option types, and function declarations.
+- **`tests/smoke_test.sh`** — Runs automated smoke tests against common listing behaviors.
+- **`Makefile`** — Builds the executable, runs tests, and removes generated build files.
+- **`.gitignore`** — Excludes the compiled executable and object files from version control.
 
-- Modular source organization using several `.c` files and a shared `.h` file.
-- Compiler warnings enabled by the provided Makefile.
-- Dynamic allocation and error checks for paths, directory entries, and formatting strings.
-- No recursive descent through symbolic links, preventing common symlink loops.
-- `.gitignore` excludes the compiled `myls` binary and object files.
-- A smoke-test script exercises common options and filesystem entry types.
+## 4. Build Requirements
 
-## 5. Build and run
+The project is intended for a Linux/POSIX environment and requires:
 
-Use a Linux terminal from the project root:
+- A C compiler such as GCC or Clang.
+- GNU Make or a compatible `make` utility.
+- Standard POSIX/Linux filesystem interfaces used by the implementation.
+
+## 5. Build and Run
+
+Open a terminal and change to the project root directory.
+
+### Compile
 
 ```sh
 make
 ```
 
-The executable is named `myls` to avoid confusion with the system command. Examples:
+The build creates an executable named `myls` in the project root.
+
+### Examples
+
+List the current directory:
 
 ```sh
 ./myls
+```
+
+Include hidden entries:
+
+```sh
 ./myls -a
+```
+
+Display a long listing of `/etc`:
+
+```sh
 ./myls -l /etc
+```
+
+Display inode numbers and allocated block counts:
+
+```sh
 ./myls -i -s .
+```
+
+Append file-type indicators:
+
+```sh
 ./myls -F
+```
+
+Recursively list a directory:
+
+```sh
 ./myls -R /tmp
+```
+
+Display numeric owner and group IDs:
+
+```sh
 ./myls -n /etc/passwd
+```
+
+Sort by modification time or size:
+
+```sh
 ./myls -t
 ./myls -S
+```
+
+Treat a directory operand as an entry:
+
+```sh
 ./myls -d /tmp
 ```
 
-Run the smoke tests with:
+### Run tests
 
 ```sh
 make test
 ```
 
-Remove generated binaries and object files with:
+The smoke test creates a temporary directory containing ordinary and hidden files, an executable file, a symbolic link, and a subdirectory. It checks common options including hidden-file listing, long format, symbolic-link output, numeric IDs, inode and block output, filename suffixes, recursion, directory-as-entry behavior, character-printing modes, sorting, and size formatting.
+
+The project was built on Ubuntu with `make`, and the provided test target completed with the message `smoke tests passed`. These smoke tests cover common cases but are not an exhaustive proof of exact compatibility with every behavior of the NetBSD manual.
+
+### Clean generated files
 
 ```sh
 make clean
 ```
 
-## 6. GitHub submission
+This removes the `myls` executable and generated `.o` object files.
 
-Create a repository named exactly `Name_studentID_midterm`, replacing the placeholder parts with the naming format required by the instructor. From inside the project directory, run:
+## 6. Implementation Notes and Platform Differences
 
-```sh
-git init
-git add Makefile README.md .gitignore include src tests
-git commit -m "Implement simplified ls midterm project"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/Name_studentID_midterm.git
-git push -u origin main
-```
+- Directory entries are read using directory APIs, and file metadata is obtained with `lstat()` so that symbolic links can be identified without dereferencing them when they are listed as entries.
+- Recursive traversal skips symbolic links, preventing recursive descent through linked directories and reducing the risk of symlink loops.
+- Long format displays file type and permission bits, link count, owner, group, size, timestamp, and pathname. Numeric IDs are used with `-n` or when an owner/group name cannot be resolved.
+- File sizes for `-s` are based on allocated blocks reported by Linux metadata. Linux reports `st_blocks` in 512-byte units, and `BLOCKSIZE` is considered for block-count formatting.
+- The reference manual is for NetBSD. NetBSD-specific file types such as whiteouts and archive-state entries are not available through normal Linux `stat` metadata, so those type markers cannot be reproduced on this target platform.
+- Human-readable sizes use binary units (`B`, `K`, `M`, `G`, and larger units).
+- This is a simplified implementation of the specified option subset, not a complete replacement for every feature of every system's `ls` command.
 
-Replace `YOUR_USERNAME` and the repository name as needed. If the GitHub repository already exists, use its actual URL for `git remote add origin`. Before submission, check that no executable or `.o` files are tracked:
+## 7. Error Handling and Exit Status
 
-```sh
-git status --short
-git ls-files | grep -E '(^|/)(myls|.*\.o)$' || true
-```
+The program reports command-line option errors and filesystem errors to standard error. For example, if a path cannot be accessed or a directory cannot be read, an explanatory message is printed. The program returns a non-zero status when option parsing or a listing operation fails; successful execution returns zero.
 
-Submit the actual GitHub URL in the e-learning system and ensure the URL recorded near the top of this report matches the repository you created.
-# Midterm_SystemsProgramming
+## 8. Repository and Submission
+
+The project source code is hosted at the following GitHub repository:
+
+**https://github.com/baonhq1406/NguyenHuuQuocBao_24IT019_midterm**
+
+The repository contains the C source files, header file, `Makefile`, this report, `.gitignore`, and smoke-test script. Compiled binaries and `.o` files should not be committed.
+
+Before submission, verify that the latest version is pushed to the repository and submit the repository URL and report through the course e-learning system according to the instructor's instructions.
+
+## 9. Conclusion
+
+This project applies C programming and Linux filesystem interfaces to implement a modular command-line utility. It demonstrates argument parsing, directory traversal, file metadata retrieval, sorting, output formatting, symbolic-link handling, error reporting, and basic automated testing. The result is a working simplified `ls` implementation organized into maintainable source modules and built using a `Makefile`.
